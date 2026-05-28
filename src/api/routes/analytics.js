@@ -87,6 +87,8 @@ router.post('/dau', async (req, res, next) => {
     const userId  = req.body.user_id || req.userId;
     const key     = `analytics:dau:${date}`;
     const added   = await redis.pfadd(key, userId);
+    // Set 90-day TTL on HyperLogLog keys to manage memory growth
+    await redis.expire(key, 90 * 24 * 60 * 60);
     return res.json({ date, user_id: userId, added: added === 1 });
   } catch (err) {
     next(err);

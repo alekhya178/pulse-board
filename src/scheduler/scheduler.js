@@ -53,8 +53,8 @@ cron.schedule('0 0 * * *', async () => {
   await withLock('scheduler:daily_analytics', async () => {
     const date = new Date().toISOString().slice(0, 10);
     await enqueueJob('aggregate_analytics', { date });
-    // Record scheduler execution in Redis for monitoring
-    await redis.set(`scheduler:last_run:daily_analytics`, date);
+    // Record scheduler execution in Redis for monitoring (7-day TTL)
+    await redis.set(`scheduler:last_run:daily_analytics`, date, 'EX', 86400 * 7);
   });
 }, { timezone: 'UTC' });
 
@@ -67,7 +67,8 @@ cron.schedule('0 * * * *', async () => {
   console.log('[Scheduler] Running hourly session cleanup...');
   await withLock('scheduler:session_cleanup', async () => {
     await enqueueJob('cleanup_sessions', { ts: Date.now() });
-    await redis.set('scheduler:last_run:session_cleanup', Date.now());
+    // Record scheduler execution with a 7-day TTL
+    await redis.set('scheduler:last_run:session_cleanup', Date.now(), 'EX', 86400 * 7);
   });
 });
 
@@ -86,17 +87,35 @@ cron.schedule('0 6 * * *', async () => {
 }, { timezone: 'UTC' });
 
 /**
+ * Daily Analytics Cleanup & Pruning — runs every day at 2:00 AM UTC
+ * Prunes the trending:channels and reputation:users sorted sets to prevent unbound memory growth.
+ */
+cron.schedule('0 2 * * *', async () => {
+  console.log('[Scheduler] Running daily analytics pruning...');
+  await withLock('scheduler:analytics_cleanup', async () => {
+    // Keep only the top 100 trending channels
+    await redis.zremrangebyrank('trending:channels', 0, -101);
+    // Keep only the top 1000 users by reputation
+    await redis.zremrangebyrank('reputation:users', 0, -1001);
+    // Record execution tracker with a 7-day TTL
+    await redis.set('scheduler:last_run:analytics_cleanup', Date.now(), 'EX', 86400 * 7);
+  });
+}, { timezone: 'UTC' });
+
+/**
  * Heartbeat — every minute, write a health timestamp to Redis.
  * This allows external monitors to verify the scheduler is alive.
  */
 cron.schedule('* * * * *', async () => {
-  await redis.set('scheduler:heartbeat', Date.now());
+  // Set heartbeat with a 5-minute TTL
+  await redis.set('scheduler:heartbeat', Date.now(), 'EX', 300);
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 console.log('[Scheduler] PulseBoard Scheduler Service starting...');
 console.log('[Scheduler] Registered tasks:');
 console.log('  • Daily analytics aggregation  — 00:00 UTC');
+console.log('  • Daily analytics pruning      — 02:00 UTC');
 console.log('  • Session cleanup              — every hour');
 console.log('  • Nightly summary email        — 06:00 UTC');
 console.log('  • Health heartbeat             — every minute');

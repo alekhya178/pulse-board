@@ -36,11 +36,11 @@ async function rateLimiter(req, res, next) {
   res.set('X-RateLimit-Remaining', String(Math.max(0, RATE_LIMIT_MAX - count)));
 
   if (count > RATE_LIMIT_MAX) {
-    const ttl = await redis.ttl(key);
-    res.set('Retry-After', String(ttl));
+    const retryAfter = ttl > 0 ? ttl : RATE_LIMIT_WINDOW;
+    res.set('Retry-After', String(retryAfter));
     return res.status(429).json({
       error: 'Too Many Requests',
-      retryAfterSeconds: ttl,
+      retryAfterSeconds: retryAfter,
     });
   }
 

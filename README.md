@@ -230,6 +230,16 @@ Accepting a workspace invitation requires two writes:
 
 Wrapping these in `MULTI/EXEC` ensures atomicity — either both succeed or neither does, even if Redis restarts mid-operation.
 
+### Memory Management & Eviction Tradeoffs
+* **Maxmemory Policy (`volatile-lru`)**: The Redis instance is configured with `volatile-lru` eviction policy. This ensures that critical keys with no TTL (such as permanent workspace/user metadata) or with high importance (active session tokens, distributed locks) are not evicted under memory pressure. Only keys with an explicit TTL (like rate limit trackers) are candidates for eviction.
+* **Sorted Sets Pruning**: Leaderboard and trending sorted sets (`reputation:users` and `trending:channels`) accumulate scores over time. To prevent unbounded memory consumption, the Scheduler runs a daily cron task at 2:00 AM UTC that prunes these sets using `ZREMRANGEBYRANK` to retain only the top 100 channels and top 1000 users.
+* **Daily Active Users (DAU)**: Daily active user HyperLogLog keys (`analytics:dau:{date}`) are automatically set with a 90-day TTL upon user activity registration to manage memory growth.
+* **Active Locations (GEO)**: User check-in coordinates stored in `geo:active_users` are cleaned up reactively when a user logs out or disconnects their WebSocket connection. Location index cleanup for REST-only users is best-effort and stale entries can be cleared by administrative or periodic sweep tasks.
+
+### Security Limitations
+* **Unauthenticated WebSocket Presence**: To support lightweight heartbeats, the WebSocket server trusts the `user_id` provided in the `ping` frame without requiring full session token re-verification.
+* **Simplified Authentication**: The platform uses a simplified authentication flow where `POST /auth/login` creates a session based on the provided `user_id` and `email` without password verification. This is suitable for evaluation and demonstration purposes.
+
 ---
 
 ## Quick Start

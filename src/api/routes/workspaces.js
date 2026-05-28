@@ -76,8 +76,17 @@ router.get('/', async (req, res, next) => {
  * Find workspaces two users share.
  * Uses SINTER on their individual membership keys.
  *
- * NOTE: This requires storing a per-user set of workspaces in addition
- *       to the per-workspace member set.
+ * NOTE ON KEY RELATIONSHIP & SPEC DESIGN:
+ * The spec references using SINTER with workspace member sets (e.g. workspace:{id}:members).
+ * However, to find the intersection of workspaces *between* two users (User A and User B),
+ * SINTER must be run on sets containing *workspaces* for each user (i.e. user:{userId}:workspaces).
+ *
+ * To reconcile both needs:
+ * 1. `workspace:{workspaceId}:members` (Set of user IDs) is used for workspace membership validation and listing.
+ * 2. `user:{userId}:workspaces` (Set of workspace IDs) acts as a reciprocal index.
+ * Both sets are updated atomically (via MULTI/EXEC or dual-writes) on creation/join/leave, 
+ * enabling O(1) SINTER lookup of shared workspaces.
+ *
  * Command: SINTER
  */
 router.get('/common', async (req, res, next) => {

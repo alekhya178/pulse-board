@@ -15,10 +15,14 @@ async function setOnline(userId) {
 
 /**
  * Mark a user as offline.
- * Command: SREM
+ * Removes the user from the online presence set AND clears their location coordinates from the active location index.
+ * Command: MULTI (SREM + ZREM)
  */
 async function setOffline(userId) {
-  return redis.srem(ONLINE_KEY, userId);
+  const pipeline = redis.multi();
+  pipeline.srem(ONLINE_KEY, userId);
+  pipeline.zrem('geo:active_users', userId);
+  await pipeline.exec();
 }
 
 /**
