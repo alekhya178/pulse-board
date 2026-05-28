@@ -99,7 +99,7 @@ async function processEventStream() {
   while (!isShuttingDown) {
     try {
       // Read up to 5 events, blocking up to 2s
-      const events = await readEvents(CONSUMER_NAME, 5);
+      const events = await readEvents(CONSUMER_NAME, 5, streamClient);
       for (const event of events) {
         console.log(`[Worker] 📡 Stream event id=${event.id} type=${event.data.type}:`, event.data);
         // Process the event ...

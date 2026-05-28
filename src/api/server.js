@@ -75,6 +75,7 @@ const wss    = new WebSocket.Server({ server });
  */
 wss.on('connection', (ws, req) => {
   console.log('[WS] Client connected');
+  let connectedUserId = null;
 
   // Each connection gets its own Redis subscriber client
   const subscriber = createSubscriber();
@@ -110,6 +111,7 @@ wss.on('connection', (ws, req) => {
 
     // Presence heartbeat
     if (msg.action === 'ping' && msg.user_id) {
+      connectedUserId = msg.user_id;
       await setOnline(msg.user_id);
       ws.send(JSON.stringify({ action: 'pong', user_id: msg.user_id }));
     }
@@ -117,6 +119,9 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', async () => {
     console.log('[WS] Client disconnected');
+    if (connectedUserId) {
+      await setOffline(connectedUserId).catch(() => {});
+    }
     // Clean up subscriber client
     for (const ch of subscribedChannels) {
       await subscriber.unsubscribe(ch).catch(() => {});

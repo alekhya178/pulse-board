@@ -47,10 +47,11 @@ async function ensureConsumerGroup() {
  *
  * @param {string} consumerName  Unique consumer name within the group
  * @param {number} count         Max entries to fetch
+ * @param {Object} [client]      Optional custom Redis client connection
  * @returns {Array}              Parsed message array
  */
-async function readEvents(consumerName, count = 10) {
-  const results = await redis.xreadgroup(
+async function readEvents(consumerName, count = 10, client = redis) {
+  const results = await client.xreadgroup(
     'GROUP', CONSUMER_GROUP, consumerName,
     'COUNT', count,
     'BLOCK', 2000,

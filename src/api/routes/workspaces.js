@@ -48,11 +48,11 @@ router.post('/', async (req, res, next) => {
 
 /**
  * GET /workspaces
- * List all workspaces registered in the system.
+ * List all workspaces the authenticated user belongs to.
  */
 router.get('/', async (req, res, next) => {
   try {
-    const ids = await redis.smembers('workspaces:all');
+    const ids = await redis.smembers(`user:${req.userId}:workspaces`);
     if (!ids || ids.length === 0) {
       return res.json([]);
     }

@@ -31,6 +31,8 @@ router.post('/', async (req, res, next) => {
       'created_by',   req.userId,
       'created_at',   String(Date.now())
     );
+    // Register globally for fast enumeration
+    await redis.sadd('channels:all', channel_id);
     // Add to workspace channels set for enumeration
     if (workspace_id) {
       await redis.sadd(`workspace:${workspace_id}:channels`, channel_id);
@@ -47,13 +49,11 @@ router.post('/', async (req, res, next) => {
  */
 router.get('/', async (req, res, next) => {
   try {
-    const keys = await redis.keys('channel:*');
-    // Filter out sub-keys like channel:123:messages
-    const channelKeys = keys.filter((k) => k.split(':').length === 2);
+    const channelIds = await redis.smembers('channels:all');
     const channels = await Promise.all(
-      channelKeys.map((k) => redis.hgetall(k))
+      channelIds.map((id) => redis.hgetall(`channel:${id}`))
     );
-    return res.json(channels.filter(Boolean));
+    return res.json(channels.filter((c) => c && Object.keys(c).length > 0));
   } catch (err) {
     next(err);
   }
