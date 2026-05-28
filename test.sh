@@ -140,7 +140,7 @@ section "Req 7: Real-Time Messaging (Pub/Sub)"
 curl -sf -X POST "$BASE_URL/channels" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"channel_id\":\"$CHANNEL_ID\",\"name\":\"#general\",\"workspace_id\":\"$WORKSPACE_ID\"}" > /dev/null
+  -d "{\"channel_id\":\"$CHANNEL_ID\",\"name\":\"general\",\"workspace_id\":\"$WORKSPACE_ID\"}" > /dev/null
 
 res=$(curl -sf -X POST "$BASE_URL/channels/$CHANNEL_ID/messages" \
   -H "Authorization: Bearer $TOKEN" \
