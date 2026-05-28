@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PulseBoard — Real-Time Operations Dashboard</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              bg: '#0c0b11',
+              panel: 'rgba(18, 16, 26, 0.45)',
+              border: 'rgba(255, 255, 255, 0.06)',
+              primary: '#7c4dff',
+              secondary: '#00e5ff',
+              accent: '#ff007f',
+              success: '#00e676',
+              dark: '#12101a'
+            }
+          },
+          fontFamily: {
+            sans: ['Outfit', 'sans-serif'],
+            code: ['Space Grotesk', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style type="text/css">
+    body {
+      background: radial-gradient(circle at 50% 50%, #151122 0%, #0c0b11 100%);
+      font-family: 'Outfit', sans-serif;
+    }
+    .glass-panel {
+      background: rgba(18, 16, 26, 0.45);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+    @keyframes pulse-glow {
+      0%, 100% { transform: scale(1); opacity: 0.9; }
+      50% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 4px #00e676); }
+    }
+    .pulse-indicator {
+      animation: pulse-glow 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="h-full text-zinc-100 flex flex-col overflow-hidden">
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Login Modal / Overlay -->
+  <div id="login-overlay" class="fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-md transition-all duration-300">
+    <div class="glass-panel w-full max-w-md p-8 rounded-2xl shadow-2xl flex flex-col relative overflow-hidden">
+      <!-- Glow Decor -->
+      <div class="absolute -top-16 -left-16 w-32 h-32 bg-brand-primary/20 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -bottom-16 -right-16 w-32 h-32 bg-brand-secondary/20 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="flex items-center justify-center gap-2 mb-6">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg shadow-brand-primary/20">
+          <span class="font-bold text-white text-sm font-code">P</span>
+        </div>
+        <h1 class="text-2xl font-bold font-code bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400">PulseBoard</h1>
+      </div>
+
+      <div class="text-center mb-8">
+        <h2 class="text-xl font-semibold text-zinc-100">Welcome to PulseBoard</h2>
+        <p class="text-sm text-zinc-400 mt-1">Real-Time Operations & Coordination Hub</p>
+      </div>
+
+      <form id="login-form" class="space-y-4" onsubmit="handleLogin(event)">
+        <div>
+          <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">User ID (Unique identifier)</label>
+          <input type="text" id="login-userid" required placeholder="e.g. user-alice-001" 
+            class="w-full px-4 py-3 rounded-xl bg-zinc-900/80 border border-zinc-800 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all font-code">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Email Address</label>
+          <input type="email" id="login-email" required placeholder="e.g. alice@example.com" 
+            class="w-full px-4 py-3 rounded-xl bg-zinc-900/80 border border-zinc-800 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Display Name (Optional)</label>
+          <input type="text" id="login-name" placeholder="e.g. Alice Smith" 
+            class="w-full px-4 py-3 rounded-xl bg-zinc-900/80 border border-zinc-800 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all">
+        </div>
+
+        <button type="submit" 
+          class="w-full py-3 mt-4 rounded-xl bg-gradient-to-r from-brand-primary to-brand-secondary text-white font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-brand-primary/20 flex items-center justify-center gap-2">
+          <span>Sign In to Workspace</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Dashboard Container -->
+  <div id="app-container" class="flex-1 flex overflow-hidden hidden">
+
+    <!-- Column A: Left Sidebar (Width: 1/5) -->
+    <aside class="w-1/5 min-w-[240px] max-w-[320px] flex flex-col border-r border-zinc-800 bg-[#0d0c13] relative select-none">
+      
+      <!-- Workspace Brand Top Area -->
+      <div class="h-16 border-b border-zinc-800/80 px-4 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-6 rounded bg-gradient-to-tr from-brand-primary to-brand-secondary flex items-center justify-center shadow">
+            <span class="text-white text-xs font-bold font-code">P</span>
+          </div>
+          <span class="font-bold text-lg tracking-tight font-code bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-300">PulseBoard</span>
+        </div>
+        <!-- Workspace Selector -->
+        <div class="relative">
+          <select id="workspace-select" onchange="switchWorkspace(this.value)"
+            class="bg-zinc-900 border border-zinc-800 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-primary text-zinc-300 font-semibold cursor-pointer">
+            <!-- Dynamic workspaces populated here -->
+          </select>
+        </div>
+      </div>
+
+      <!-- Scrollable Navigation Lists -->
+      <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-6">
+        
+        <!-- Workspaces Section -->
+        <div>
+          <div class="flex items-center justify-between px-2 mb-2">
+            <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Workspaces</span>
+            <button onclick="promptCreateWorkspace()" title="New Workspace" class="text-zinc-500 hover:text-zinc-300 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            </button>
+          </div>
+          <nav id="workspaces-list" class="space-y-1">
+            <!-- Dynamic workspace items -->
+          </nav>
+        </div>
+
+        <!-- Channels Section -->
+        <div>
+          <div class="flex items-center justify-between px-2 mb-2">
+            <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Channels</span>
+            <button onclick="promptCreateChannel()" title="New Channel" class="text-zinc-500 hover:text-zinc-300 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            </button>
+          </div>
+          <nav id="channels-list" class="space-y-1">
+            <!-- Dynamic channels lists -->
+          </nav>
+        </div>
+      </div>
+
+      <!-- User Presence Section (Bottom) -->
+      <div class="border-t border-zinc-800/80 bg-zinc-950/40 p-4">
+        <div class="flex items-center justify-between mb-3 px-1">
+          <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Teammates presence</span>
+          <span id="presence-count" class="text-xs text-brand-success bg-brand-success/10 px-1.5 py-0.5 rounded-full font-code">0</span>
+        </div>
+        <div id="teammates-list" class="space-y-2 max-h-[160px] overflow-y-auto custom-scrollbar">
+          <!-- Teammate cards -->
+        </div>
+
+        <!-- Self status badge -->
+        <div class="mt-4 pt-3 border-t border-zinc-800/80 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-zinc-300 border border-zinc-700 text-xs" id="user-avatar-initials">
+              ??
+            </div>
+            <div class="flex flex-col">
+              <span class="text-xs font-semibold text-zinc-200 truncate max-w-[100px]" id="user-display-name">Username</span>
+              <span class="text-[9px] text-zinc-500 font-code truncate max-w-[100px]" id="user-display-id">ID</span>
+            </div>
+          </div>
+          <button onclick="handleLogout()" title="Log out" class="text-zinc-500 hover:text-brand-accent transition-colors">
+            <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          </button>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- Column B: Central Stage / Chat Window (Width: 3/5) -->
+    <main class="flex-1 flex flex-col bg-[#0f0e16] relative overflow-hidden">
+      <!-- Header bar -->
+      <header class="h-16 border-b border-zinc-800/80 px-6 flex items-center justify-between bg-zinc-950/20 select-none">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-lg font-bold text-zinc-200" id="chat-channel-name">#select-a-channel</span>
+          </div>
+          <span class="text-xs text-zinc-500" id="chat-channel-topic">Select a channel to begin communicating</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <!-- Connection Status indicator -->
+          <div class="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider">
+            <span id="ws-status-dot" class="w-2 h-2 rounded-full bg-amber-500"></span>
+            <span id="ws-status-text" class="text-zinc-400 font-code">connecting</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Message Feed -->
+      <div id="chat-feed" class="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4 flex flex-col justify-end">
+        <!-- Message bubbles dynamically populated here -->
+        <div class="text-center text-zinc-600 my-auto">
+          <svg class="w-12 h-12 mx-auto text-zinc-800 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          <p class="text-sm font-semibold">Welcome to PulseBoard Operations Hub</p>
+          <p class="text-xs text-zinc-500 mt-1">Please select or create a channel to view recent messages.</p>
+        </div>
+      </div>
+
+      <!-- Typing notification indicator -->
+      <div id="typing-indicator" class="px-6 py-1 h-6 text-xs text-zinc-500 italic bg-transparent flex items-center gap-1 transition-opacity duration-200 opacity-0 select-none">
+        <span id="typing-text">Alice is typing</span>
+        <span class="flex gap-0.5 ml-1">
+          <span class="w-1 h-1 bg-zinc-400 rounded-full animate-bounce"></span>
+          <span class="w-1 h-1 bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+          <span class="w-1 h-1 bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></span>
+        </span>
+      </div>
+
+      <!-- Bottom Input Bar -->
+      <div class="p-4 border-t border-zinc-800/80 bg-zinc-950/20">
+        <form id="message-form" onsubmit="handleSendMessage(event)" class="flex gap-2 relative">
+          <input type="text" id="message-input" disabled placeholder="Type a message..."
+            oninput="triggerTyping()"
+            class="flex-1 bg-zinc-900 border border-zinc-800 text-sm text-zinc-200 placeholder-zinc-500 px-4 py-3 rounded-xl focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all">
+          <button type="submit" id="message-send-btn" disabled
+            class="px-5 py-3 rounded-xl bg-brand-primary hover:opacity-90 active:scale-[0.98] text-white text-sm font-semibold transition-all shadow-md shadow-brand-primary/10 flex items-center justify-center gap-1.5">
+            <span>Send</span>
+            <svg class="w-3.5 h-3.5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+          </button>
+        </form>
+      </div>
+
+    </main>
+
+    <!-- Column C: Right Sidebar / Insights & Analytics (Width: 1/5) -->
+    <aside class="w-1/5 min-w-[240px] max-w-[320px] border-l border-zinc-800 bg-[#0d0c13] flex flex-col select-none">
+      
+      <!-- Leaderboard Section (Top) -->
+      <div class="p-4 border-b border-zinc-800/80">
+        <div class="flex items-center gap-1.5 mb-3">
+          <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span class="text-xs font-bold text-zinc-400 uppercase tracking-wider">Trending Channels</span>
+        </div>
+        <div class="glass-panel rounded-xl p-3 bg-zinc-950/40">
+          <ol id="trending-list" class="space-y-2 text-xs">
+            <!-- Trending Channels -->
+          </ol>
+        </div>
+      </div>
+
+      <!-- Activity Feed Timeline (Middle) -->
+      <div class="flex-1 p-4 border-b border-zinc-800/80 flex flex-col overflow-hidden">
+        <div class="flex items-center gap-1.5 mb-3 flex-shrink-0">
+          <svg class="w-4 h-4 text-brand-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span class="text-xs font-bold text-zinc-400 uppercase tracking-wider">Activity Feed Logs</span>
+        </div>
+        <div class="flex-1 overflow-y-auto custom-scrollbar pr-1">
+          <div id="activity-timeline" class="border-l border-zinc-800/60 ml-2 pl-3 py-1 space-y-4">
+            <!-- Timeline items -->
+          </div>
+        </div>
+      </div>
+
+      <!-- User Status & Tools (Bottom) -->
+      <div class="p-4 bg-zinc-950/20 space-y-4">
+        
+        <!-- Geospatial tools -->
+        <div>
+          <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-2">Location status</span>
+          <div class="glass-panel p-3 rounded-xl bg-zinc-950/40 space-y-2.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-zinc-500">Coordinates:</span>
+              <span id="user-location-text" class="text-zinc-300 font-code font-medium">Not checked-in</span>
+            </div>
+            <button onclick="handleLocationCheckin()"
+              class="w-full py-2 bg-zinc-850 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]">
+              <svg class="w-3.5 h-3.5 text-brand-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              <span>Simulate Check-In</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Attendance Tracking -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Attendance Grid</span>
+            <button onclick="handleMarkAttendance()" class="text-[10px] font-bold text-brand-secondary hover:text-brand-secondary/80 transition-colors uppercase tracking-wider">Check In</button>
+          </div>
+          <div class="glass-panel p-3 rounded-xl bg-zinc-950/40">
+            <!-- 31 Dots Grid -->
+            <div id="attendance-grid" class="grid grid-cols-7 gap-1">
+              <!-- dynamic 31 dots -->
+            </div>
+            <div class="flex items-center justify-between mt-2 pt-2 border-t border-zinc-800/80 text-[10px] text-zinc-500">
+              <span id="attendance-status">Active days: 0</span>
+              <span id="current-month">May 2026</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- JavaScript App Logic -->
+  <script type="text/javascript">
+    // App State Configuration
+    const API_BASE = window.location.origin;
+    const WS_BASE = API_BASE.replace(/^http/, 'ws');
+    
+    let state = {
+      userId: null,
+      email: null,
+      name: null,
+      token: null,
+      workspaces: [
+        { workspace_id: 'ws-engineering', name: 'Engineering Team' },
+        { workspace_id: 'ws-marketing', name: 'Marketing Hub' }
+      ],
+      activeWorkspace: 'ws-engineering',
+      channels: [],
+      activeChannel: null,
+      messages: {}, // channel_id -> message objects list
+      onlineUsers: new Set(),
+      attendanceDays: {},
+      reputation: 0,
+      typingTimeout: null,
+      lastTypingSent: 0
+    };
+
+    let ws = null;
+    let wsHeartbeatInterval = null;
+
+    // Toast Notification helper
+    function showToast(message, type = 'info') {
+      const colors = {
+        success: 'border-brand-success/20 bg-emerald-950/70 text-emerald-300',
+        error: 'border-brand-accent/20 bg-rose-950/70 text-rose-300',
+        info: 'border-zinc-800/80 bg-zinc-950/70 text-zinc-300'
+      };
+      const iconColors = {
+        success: 'text-brand-success',
+        error: 'text-brand-accent',
+        info: 'text-brand-secondary'
+      };
+
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `glass-panel px-4 py-3 rounded-xl border flex items-center gap-2 text-xs font-semibold shadow-lg transition-all duration-300 opacity-0 translate-y-2 pointer-events-auto ${colors[type]}`;
+      toast.innerHTML = `
+        <span class="w-1.5 h-1.5 rounded-full bg-current ${iconColors[type]}"></span>
+        <span>${message}</span>
+      `;
+      container.appendChild(toast);
+      
+      // Trigger animation
+      setTimeout(() => {
+        toast.classList.remove('opacity-0', 'translate-y-2');
+      }, 50);
+
+      // Dismiss after 4s
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // On Load Initializer
+    window.addEventListener('DOMContentLoaded', () => {
+      // Check existing authentication
+      const token = localStorage.getItem('pb_token');
+      const userId = localStorage.getItem('pb_user_id');
+      const email = localStorage.getItem('pb_email');
+      const name = localStorage.getItem('pb_name');
+
+      if (token && userId) {
+        state.token = token;
+        state.userId = userId;
+        state.email = email;
+        state.name = name || userId;
+        initDashboard();
+      } else {
+        document.getElementById('login-overlay').classList.remove('hidden');
+      }
+
+      // Render static components like placeholder attendance grid
+      renderAttendanceGrid();
+    });
+
+    // Form Login Action
+    async function handleLogin(e) {
+      e.preventDefault();
+      const userId = document.getElementById('login-userid').value.trim();
+      const email = document.getElementById('login-email').value.trim();
+      const name = document.getElementById('login-name').value.trim();
+
+      if (!userId || !email) {
+        showToast('User ID and Email are required', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId, email, name })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || 'Failed to authenticate');
+        }
+
+        const data = await res.json();
+        
+        state.token = data.session_token;
+        state.userId = userId;
+        state.email = email;
+        state.name = name || userId;
+
+        localStorage.setItem('pb_token', data.session_token);
+        localStorage.setItem('pb_user_id', userId);
+        localStorage.setItem('pb_email', email);
+        localStorage.setItem('pb_name', state.name);
+
+        showToast('Login successful!', 'success');
+        initDashboard();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Logout Action
+    async function handleLogout() {
+      try {
+        if (state.token) {
+          await fetch(`${API_BASE}/auth/logout`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${state.token}` }
+          });
+        }
+      } catch (err) {
+        console.error('Logout error:', err);
+      } finally {
+        localStorage.clear();
+        state.token = null;
+        state.userId = null;
+        if (ws) {
+          ws.close();
+        }
+        clearInterval(wsHeartbeatInterval);
+        document.getElementById('app-container').classList.add('hidden');
+        document.getElementById('login-overlay').classList.remove('hidden');
+        showToast('Logged out successfully', 'info');
+      }
+    }
+
+    // Dashboard loader
+    async function initDashboard() {
+      // Hide login overlay, show dashboard
+      document.getElementById('login-overlay').classList.add('hidden');
+      document.getElementById('app-container').classList.remove('hidden');
+
+      // Set self credentials in bottom badge
+      document.getElementById('user-display-name').textContent = state.name;
+      document.getElementById('user-display-id').textContent = `@${state.userId}`;
+      document.getElementById('user-avatar-initials').textContent = state.name.slice(0, 2).toUpperCase();
+
+      // Prepopulate workspaces dropdown
+      populateWorkspaceSelector();
+
+      // Sync and load workspaces details
+      await syncWorkspaceWorkflows();
+
+      // Setup Websockets
+      initWebsockets();
+
+      // Background loops
+      loadTrendingChannels();
+      loadTeammatesPresence();
+      loadUserActivityFeed();
+      loadAttendanceData();
+    }
+
+    // Prepopulate Select Options
+    function populateWorkspaceSelector() {
+      const select = document.getElementById('workspace-select');
+      select.innerHTML = '';
+      state.workspaces.forEach(ws => {
+        const opt = document.createElement('option');
+        opt.value = ws.workspace_id;
+        opt.textContent = ws.name;
+        opt.selected = ws.workspace_id === state.activeWorkspace;
+        select.appendChild(opt);
+      });
+    }
+
+    // Create Workspaces & Channels Syncing
+    async function syncWorkspaceWorkflows() {
+      // List Workspaces
+      const listContainer = document.getElementById('workspaces-list');
+      listContainer.innerHTML = '';
+
+      state.workspaces.forEach(ws => {
+        const item = document.createElement('div');
+        const isActive = ws.workspace_id === state.activeWorkspace;
+        item.className = `flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+          isActive 
+            ? 'bg-zinc-800/80 text-zinc-100 shadow border border-zinc-700/50' 
+            : 'text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200'
+        }`;
+        item.onclick = () => switchWorkspace(ws.workspace_id);
+        item.innerHTML = `
+          <span class="w-2.5 h-2.5 rounded bg-gradient-to-tr from-brand-primary to-brand-secondary flex-shrink-0"></span>
+          <span class="truncate flex-1">${ws.name}</span>
+        `;
+        listContainer.appendChild(item);
+      });
+
+      // Query active channels
+      await loadChannels();
+    }
+
+    // Switch workspace trigger
+    async function switchWorkspace(wsId) {
+      state.activeWorkspace = wsId;
+      populateWorkspaceSelector();
+      await syncWorkspaceWorkflows();
+      showToast(`Switched workspace to ${state.workspaces.find(w => w.workspace_id === wsId).name}`, 'info');
+      
+      // Auto register user as member in selected workspace to simulate backend integration
+      try {
+        await fetch(`${API_BASE}/workspaces/${wsId}/members`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ user_id: state.userId })
+        });
+      } catch(e) {}
+    }
+
+    // Load Channels from Backend
+    async function loadChannels() {
+      try {
+        const res = await fetch(`${API_BASE}/channels`, {
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+        if (!res.ok) throw new Error('Could not fetch channels');
+        const data = await res.json();
+        
+        // Filter channels belonging to current workspace
+        state.channels = data.filter(c => c.workspace_id === state.activeWorkspace);
+
+        // If no channels exist for this workspace, auto-create a default '#general'
+        if (state.channels.length === 0) {
+          const createRes = await fetch(`${API_BASE}/channels`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${state.token}`
+            },
+            body: JSON.stringify({
+              channel_id: `ch-${state.activeWorkspace}-general`,
+              name: 'general',
+              workspace_id: state.activeWorkspace
+            })
+          });
+          if (createRes.ok) {
+            const newCh = await createRes.json();
+            state.channels.push({
+              channel_id: newCh.channel_id,
+              name: newCh.name,
+              workspace_id: state.activeWorkspace
+            });
+          }
+        }
+
+        renderChannelsList();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Render channels UI list
+    function renderChannelsList() {
+      const container = document.getElementById('channels-list');
+      container.innerHTML = '';
+
+      state.channels.forEach(ch => {
+        const item = document.createElement('div');
+        const isActive = state.activeChannel === ch.channel_id;
+        item.className = `flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+          isActive 
+            ? 'bg-zinc-800/80 text-zinc-100 shadow border border-zinc-700/50' 
+            : 'text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200'
+        }`;
+        item.onclick = () => switchChannel(ch.channel_id);
+        item.innerHTML = `
+          <span class="text-zinc-600 select-none">#</span>
+          <span class="truncate flex-1">${ch.name}</span>
+        `;
+        container.appendChild(item);
+      });
+
+      // Auto-select first channel if none active
+      if (!state.activeChannel && state.channels.length > 0) {
+        switchChannel(state.channels[0].channel_id);
+      }
+    }
+
+    // Switch Channel
+    function switchChannel(channelId) {
+      if (state.activeChannel === channelId) return;
+
+      const previousChannel = state.activeChannel;
+      state.activeChannel = channelId;
+
+      // Re-render UI list
+      renderChannelsList();
+
+      const channelInfo = state.channels.find(c => c.channel_id === channelId);
+      if (channelInfo) {
+        document.getElementById('chat-channel-name').textContent = `#${channelInfo.name}`;
+        document.getElementById('chat-channel-topic').textContent = `Discussion space for #${channelInfo.name} in workspace.`;
+        
+        // Enable input fields
+        document.getElementById('message-input').removeAttribute('disabled');
+        document.getElementById('message-send-btn').removeAttribute('disabled');
+      }
+
+      // Load Message History
+      loadMessageHistory(channelId);
+
+      // WS Subscription Sync
+      syncWSSubscriptions(previousChannel, channelId);
+    }
+
+    // Load messages from local memory (since API is ephemeral pubsub) or show placeholders
+    function loadMessageHistory(channelId) {
+      const container = document.getElementById('chat-feed');
+      container.innerHTML = '';
+
+      if (!state.messages[channelId]) {
+        state.messages[channelId] = [
+          { sender_id: 'system', text: `Welcome to the beginning of the #${state.channels.find(c => c.channel_id === channelId)?.name || 'channel'} channel!`, ts: Date.now() - 3600000 }
+        ];
+      }
+
+      state.messages[channelId].forEach(msg => {
+        appendMessageToUI(msg);
+      });
+
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // Append single message to UI Feed
+    function appendMessageToUI(msg) {
+      const container = document.getElementById('chat-feed');
+      
+      // If placeholder system message
+      if (msg.sender_id === 'system') {
+        const div = document.createElement('div');
+        div.className = 'text-center text-[10px] uppercase font-bold tracking-wider text-zinc-600 my-4 border-b border-zinc-800/40 pb-2 select-none';
+        div.textContent = msg.text;
+        container.appendChild(div);
+        return;
+      }
+
+      const isSelf = msg.sender_id === state.userId;
+      const initials = msg.sender_id.slice(0, 2).toUpperCase();
+
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `flex gap-3 items-start group ${isSelf ? 'flex-row-reverse' : ''}`;
+      
+      const timeStr = new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      msgDiv.innerHTML = `
+        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-primary to-indigo-900 border border-zinc-700/60 flex items-center justify-center font-bold text-xs select-none shadow">
+          ${initials}
+        </div>
+        <div class="flex flex-col max-w-[70%]">
+          <div class="flex items-baseline gap-2 ${isSelf ? 'justify-end' : ''}">
+            <span class="text-xs font-bold text-zinc-300 font-code">${msg.sender_id}</span>
+            <span class="text-[9px] text-zinc-600 font-code">${timeStr}</span>
+          </div>
+          <div class="mt-1 px-4 py-2.5 rounded-2xl text-sm leading-relaxed border ${
+            isSelf 
+              ? 'bg-brand-primary/10 border-brand-primary/20 text-brand-secondary rounded-tr-none' 
+              : 'bg-zinc-900/80 border-zinc-800/60 text-zinc-200 rounded-tl-none'
+          }">
+            ${msg.text}
+          </div>
+        </div>
+      `;
+
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // Send Message Form submission
+    async function handleSendMessage(e) {
+      e.preventDefault();
+      const input = document.getElementById('message-input');
+      const text = input.value.trim();
+
+      if (!text || !state.activeChannel) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/channels/${state.activeChannel}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ text })
+        });
+
+        if (!res.ok) throw new Error('Failed to send message');
+        
+        input.value = '';
+
+        // Trigger feed reload
+        loadUserActivityFeed();
+        loadTrendingChannels();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // WebSockets Handler
+    function initWebsockets() {
+      if (ws) {
+        ws.close();
+      }
+
+      ws = new WebSocket(WS_BASE);
+
+      ws.onopen = () => {
+        updateWSStatus('connected', 'bg-brand-success');
+        showToast('Real-time updates operational', 'success');
+
+        // Start ping heartbeat loop to report online status
+        if (wsHeartbeatInterval) clearInterval(wsHeartbeatInterval);
+        wsHeartbeatInterval = setInterval(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ action: 'ping', user_id: state.userId }));
+          }
+        }, 10000);
+
+        // Immediately trigger first ping to set user online on backend
+        ws.send(JSON.stringify({ action: 'ping', user_id: state.userId }));
+
+        // Subscribe to currently selected channel
+        if (state.activeChannel) {
+          ws.send(JSON.stringify({
+            action: 'subscribe',
+            channels: [
+              `channel:${state.activeChannel}:messages`,
+              `channel:${state.activeChannel}:typing`
+            ]
+          }));
+        }
+      };
+
+      ws.onmessage = (event) => {
+        let msg;
+        try { msg = JSON.parse(event.data); } catch { return; }
+
+        // Match channel messages
+        if (msg.channel && msg.channel.endsWith(':messages')) {
+          const chId = msg.channel.split(':')[1];
+          const payload = msg.data;
+
+          if (!state.messages[chId]) state.messages[chId] = [];
+          state.messages[chId].push(payload);
+
+          // If active, render live
+          if (state.activeChannel === chId) {
+            appendMessageToUI(payload);
+          }
+        }
+
+        // Match typing events
+        if (msg.channel && msg.channel.endsWith(':typing')) {
+          const chId = msg.channel.split(':')[1];
+          const payload = msg.data;
+
+          // Don't show typing for oneself
+          if (chId === state.activeChannel && payload.user_id !== state.userId) {
+            showTypingNotification(payload.user_id);
+          }
+        }
+      };
+
+      ws.onclose = () => {
+        updateWSStatus('disconnected', 'bg-brand-accent');
+        showToast('Real-time connection lost. Retrying...', 'error');
+        setTimeout(initWebsockets, 5000);
+      };
+
+      ws.onerror = (err) => {
+        console.error('WS Error:', err);
+      };
+    }
+
+    // Sync WS subscriptions when switching channels
+    function syncWSSubscriptions(oldCh, newCh) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+      const unsubList = [];
+      if (oldCh) {
+        unsubList.push(`channel:${oldCh}:messages`, `channel:${oldCh}:typing`);
+        ws.send(JSON.stringify({ action: 'unsubscribe', channels: unsubList }));
+      }
+
+      const subList = [`channel:${newCh}:messages`, `channel:${newCh}:typing`];
+      ws.send(JSON.stringify({ action: 'subscribe', channels: subList }));
+    }
+
+    // Display WS Network badge
+    function updateWSStatus(status, colorClass) {
+      const dot = document.getElementById('ws-status-dot');
+      const text = document.getElementById('ws-status-text');
+
+      dot.className = `w-2 h-2 rounded-full ${colorClass} pulse-indicator`;
+      text.textContent = status;
+    }
+
+    // Broadcast Typing Indicator Trigger
+    function triggerTyping() {
+      const now = Date.now();
+      if (now - state.lastTypingSent < 2000) return; // rate limit local events
+      state.lastTypingSent = now;
+
+      if (!state.activeChannel) return;
+
+      fetch(`${API_BASE}/channels/${state.activeChannel}/typing`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${state.token}` }
+      });
+    }
+
+    // Typing display timer
+    function showTypingNotification(username) {
+      const container = document.getElementById('typing-indicator');
+      const textEl = document.getElementById('typing-text');
+      
+      textEl.textContent = `${username} is typing`;
+      container.classList.remove('opacity-0');
+
+      if (state.typingTimeout) clearTimeout(state.typingTimeout);
+      state.typingTimeout = setTimeout(() => {
+        container.classList.add('opacity-0');
+      }, 3000);
+    }
+
+    // Prompt new Workspace creation
+    async function promptCreateWorkspace() {
+      const name = prompt("Enter new workspace name:");
+      if (!name) return;
+
+      const workspaceId = `ws-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+
+      try {
+        const res = await fetch(`${API_BASE}/workspaces`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ workspace_id: workspaceId, name })
+        });
+
+        if (!res.ok) throw new Error('Could not create workspace');
+        const data = await res.json();
+        
+        state.workspaces.push(data);
+        switchWorkspace(data.workspace_id);
+        showToast(`Workspace "${name}" created!`, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Prompt new Channel creation
+    async function promptCreateChannel() {
+      const name = prompt("Enter new channel name (no spaces):");
+      if (!name) return;
+
+      const formattedName = name.toLowerCase().replace(/\s+/g, '-');
+      const channelId = `ch-${state.activeWorkspace}-${formattedName}`;
+
+      try {
+        const res = await fetch(`${API_BASE}/channels`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({
+            channel_id: channelId,
+            name: formattedName,
+            workspace_id: state.activeWorkspace
+          })
+        });
+
+        if (!res.ok) throw new Error('Could not create channel');
+        const data = await res.json();
+        
+        state.channels.push({
+          channel_id: data.channel_id,
+          name: data.name,
+          workspace_id: state.activeWorkspace
+        });
+
+        renderChannelsList();
+        switchChannel(data.channel_id);
+        showToast(`Channel #${formattedName} created!`, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Load online presence list
+    async function loadTeammatesPresence() {
+      try {
+        const res = await fetch(`${API_BASE}/presence`, {
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+        if (!res.ok) throw new Error('Could not fetch presence');
+        const data = await res.json();
+        
+        const countBadge = document.getElementById('presence-count');
+        countBadge.textContent = data.count || 0;
+
+        const list = document.getElementById('teammates-list');
+        list.innerHTML = '';
+
+        // Add logged in user first (if online)
+        const allUsers = new Set(data.online_users);
+        allUsers.add(state.userId); // Always make sure self is tracked or listed
+
+        if (allUsers.size === 0) {
+          list.innerHTML = `<div class="text-[11px] text-zinc-600 text-center py-2">No active users</div>`;
+          return;
+        }
+
+        allUsers.forEach(uid => {
+          const isUserOnline = data.online_users.includes(uid) || uid === state.userId;
+          const initials = uid.slice(0, 2).toUpperCase();
+
+          const card = document.createElement('div');
+          card.className = "flex items-center justify-between p-2 rounded-lg bg-zinc-950/20 border border-zinc-900 text-xs font-semibold hover:border-zinc-800 transition-all";
+          card.innerHTML = `
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700/60 flex items-center justify-center font-bold text-[10px] text-zinc-400">
+                ${initials}
+              </div>
+              <span class="truncate max-w-[120px] font-code text-zinc-300">${uid}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full ${isUserOnline ? 'bg-brand-success pulse-indicator' : 'bg-zinc-700'}"></span>
+              <span class="text-[9px] uppercase tracking-wider text-zinc-500">${isUserOnline ? 'Online' : 'Offline'}</span>
+            </div>
+          `;
+          list.appendChild(card);
+        });
+
+      } catch (err) {
+        console.error(err);
+      } finally {
+        // Poll every 8s
+        setTimeout(loadTeammatesPresence, 8000);
+      }
+    }
+
+    // Load Trending channels leaderboard
+    async function loadTrendingChannels() {
+      try {
+        const res = await fetch(`${API_BASE}/analytics/trending?n=3`, {
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        
+        const list = document.getElementById('trending-list');
+        list.innerHTML = '';
+
+        if (!data.trending || data.trending.length === 0) {
+          list.innerHTML = `<li class="text-zinc-600 text-center py-1">No channels active yet</li>`;
+          return;
+        }
+
+        const trophies = ['🥇', '🥈', '🥉'];
+        data.trending.forEach((item, index) => {
+          const chName = item.channel_id.replace(/^ch-[a-z0-9-]+-/, ''); // clean view
+          const li = document.createElement('li');
+          li.className = "flex items-center justify-between py-1.5 border-b border-zinc-900/60 last:border-0";
+          li.innerHTML = `
+            <div class="flex items-center gap-2">
+              <span class="text-sm select-none">${trophies[index] || `#${index+1}`}</span>
+              <span class="font-code text-zinc-300">#${chName}</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="text-[10px] text-zinc-500 font-medium">score:</span>
+              <span class="text-[10px] font-bold text-brand-secondary font-code">${item.score}</span>
+            </div>
+          `;
+          list.appendChild(li);
+        });
+
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Load Personal Activity timeline events
+    async function loadUserActivityFeed() {
+      try {
+        const res = await fetch(`${API_BASE}/feed`, {
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        
+        const container = document.getElementById('activity-timeline');
+        container.innerHTML = '';
+
+        if (!data.feed || data.feed.length === 0) {
+          container.innerHTML = `<div class="text-[11px] text-zinc-600 py-1 pl-1">No recent activity logs</div>`;
+          return;
+        }
+
+        data.feed.forEach(eventStr => {
+          let item;
+          try { item = JSON.parse(eventStr); } catch { return; }
+
+          const timeStr = item.ts ? new Date(item.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'recently';
+          let icon = '⚡';
+          let message = `Action logged: ${item.type}`;
+
+          if (item.type === 'login') {
+            icon = '🔑';
+            message = 'You authenticated & initialized session';
+          } else if (item.type === 'joined_workspace') {
+            icon = '🏢';
+            message = `Joined workspace ${item.workspace_id}`;
+          } else if (item.type === 'accepted_invitation') {
+            icon = '🤝';
+            message = `Accepted invite to workspace`;
+          } else if (item.type === 'location_checkin') {
+            icon = '📍';
+            message = `Simulated check-in at location`;
+          }
+
+          const entry = document.createElement('div');
+          entry.className = "relative mb-4 last:mb-0";
+          entry.innerHTML = `
+            <!-- dot pointer -->
+            <span class="absolute -left-[17px] top-1.5 w-2 h-2 rounded-full bg-brand-primary border border-[#0d0c13]"></span>
+            <div class="flex flex-col">
+              <div class="flex items-center gap-1">
+                <span class="text-xs select-none">${icon}</span>
+                <span class="text-[11px] text-zinc-300 font-semibold leading-none">${message}</span>
+              </div>
+              <span class="text-[9px] text-zinc-500 font-code mt-0.5">${timeStr}</span>
+            </div>
+          `;
+          container.appendChild(entry);
+        });
+
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Simulated location check-in
+    async function handleLocationCheckin() {
+      // Simulate random coords around central city coordinates
+      const lon = (77.59 + (Math.random() - 0.5) * 0.05).toFixed(4);
+      const lat = (12.97 + (Math.random() - 0.5) * 0.05).toFixed(4);
+
+      try {
+        const res = await fetch(`${API_BASE}/geo/location`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ longitude: lon, latitude: lat })
+        });
+        if (!res.ok) throw new Error('Location updates failed');
+        const data = await res.json();
+        
+        document.getElementById('user-location-text').textContent = `${data.longitude}, ${data.latitude}`;
+        
+        // Push event logs to feed
+        await fetch(`${API_BASE}/feed/event`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({
+            type: 'location_checkin',
+            data: { ts: Date.now() }
+          })
+        });
+
+        // Increment user reputational score
+        await fetch(`${API_BASE}/analytics/reputation/increment`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ user_id: state.userId, increment: 5 })
+        });
+
+        showToast(`Checked in successfully at ${lon}, ${lat}!`, 'success');
+        loadUserActivityFeed();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Load attendance days
+    async function loadAttendanceData() {
+      try {
+        const res = await fetch(`${API_BASE}/users/${state.userId}/attendance`, {
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+
+        state.attendanceDays = data.days || {};
+        document.getElementById('attendance-status').textContent = `Active days: ${data.active_days || 0}`;
+
+        renderAttendanceGrid();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Mark current day attendance
+    async function handleMarkAttendance() {
+      const today = new Date().getDate();
+      try {
+        const res = await fetch(`${API_BASE}/users/${state.userId}/attendance`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ day: today })
+        });
+        if (!res.ok) throw new Error('Failed to check-in attendance');
+        
+        showToast(`Attendance checked for day ${today}!`, 'success');
+        await loadAttendanceData();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Render attendance calendar dot markers (31 days)
+    function renderAttendanceGrid() {
+      const grid = document.getElementById('attendance-grid');
+      grid.innerHTML = '';
+
+      for (let day = 1; day <= 31; day++) {
+        const dot = document.createElement('div');
+        const isActive = state.attendanceDays[day] === 1;
+
+        dot.className = `aspect-square rounded-full flex items-center justify-center text-[8px] font-bold select-none border transition-all ${
+          isActive 
+            ? 'bg-brand-secondary/20 border-brand-secondary text-brand-secondary shadow-[0_0_6px_rgba(0,229,255,0.4)]' 
+            : 'bg-zinc-950/40 border-zinc-800/40 text-zinc-600 hover:border-zinc-700'
+        }`;
+        dot.textContent = day;
+        grid.appendChild(dot);
+      }
+    }
+
+  </script>
+</body>
+</html>

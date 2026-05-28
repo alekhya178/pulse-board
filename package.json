@@ -1,0 +1,28 @@
+{
+  "name": "pulseboard",
+  "version": "1.0.0",
+  "description": "Real-Time Collaborative Operations Platform powered by Redis",
+  "main": "src/api/server.js",
+  "scripts": {
+    "start": "node src/api/server.js",
+    "worker": "node src/worker/worker.js",
+    "scheduler": "node src/scheduler/scheduler.js",
+    "dev": "nodemon src/api/server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ioredis": "^5.3.2",
+    "uuid": "^11.0.0",
+    "ws": "^8.14.2",
+    "node-cron": "^3.0.3",
+    "dotenv": "^16.3.1",
+    "morgan": "^1.10.0",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
