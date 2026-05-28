@@ -345,6 +345,18 @@ pulse_board/
 
 ---
 
+## Demo Frontend Client
+
+A dynamic, real-time single-page web dashboard is served directly at `http://localhost:3000/` for evaluation and coordination testing. 
+
+### Key Features:
+* **Slate/Zinc Dark Theme**: Minimalist glassmorphic dashboard styled with Tailwind CSS.
+* **Real-Time WS Chat**: Instant messaging, live WebSocket event synchronization, client message deduplication, and typing notifications.
+* **Shared Workspaces Finder**: A dedicated SINTER-powered user lookup tool to identify overlapping workspaces.
+* **Geospatial & Attendance Simulation**: Interactive modules for coordinates check-in and daily bitmap-backed attendance checking.
+
+---
+
 ## Monitoring & Debugging
 
 ```bash

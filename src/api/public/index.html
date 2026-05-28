@@ -285,8 +285,24 @@
       </div>
 
       <!-- User Status & Tools (Bottom) -->
-      <div class="p-4 bg-zinc-950/20 space-y-4">
+      <div class="p-4 bg-zinc-950/20 space-y-4 max-h-[420px] overflow-y-auto custom-scrollbar">
         
+        <!-- Shared Workspaces Finder (SINTER Demo) -->
+        <div>
+          <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-2">Shared Workspaces Finder (SINTER)</span>
+          <div class="glass-panel p-3 rounded-xl bg-zinc-950/40 space-y-2">
+            <div class="flex gap-1.5">
+              <input type="text" id="sinter-other-user" placeholder="Enter User ID..." 
+                class="flex-1 bg-zinc-900 border border-zinc-800 text-[11px] px-2 py-1.5 rounded-lg focus:outline-none focus:border-brand-primary text-zinc-200">
+              <button onclick="findSharedWorkspaces()" 
+                class="px-2.5 py-1.5 bg-brand-primary text-white text-[11px] font-semibold rounded-lg hover:opacity-90 active:scale-[0.98] transition-all">Find</button>
+            </div>
+            <div id="sinter-results" class="text-[11px] text-zinc-400 space-y-1 max-h-[80px] overflow-y-auto custom-scrollbar">
+              <span class="text-zinc-600 italic">No lookup run yet.</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Geospatial tools -->
         <div>
           <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-2">Location status</span>
@@ -338,10 +354,7 @@
       email: null,
       name: null,
       token: null,
-      workspaces: [
-        { workspace_id: 'ws-engineering', name: 'Engineering Team' },
-        { workspace_id: 'ws-marketing', name: 'Marketing Hub' }
-      ],
+      workspaces: [],
       activeWorkspace: 'ws-engineering',
       channels: [],
       activeChannel: null,
@@ -491,6 +504,9 @@
       document.getElementById('user-display-id').textContent = `@${state.userId}`;
       document.getElementById('user-avatar-initials').textContent = state.name.slice(0, 2).toUpperCase();
 
+      // Load workspaces dynamically from API
+      await loadWorkspacesList();
+
       // Prepopulate workspaces dropdown
       populateWorkspaceSelector();
 
@@ -505,6 +521,50 @@
       loadTeammatesPresence();
       loadUserActivityFeed();
       loadAttendanceData();
+    }
+
+    // Load workspaces dynamically from API
+    async function loadWorkspacesList() {
+      try {
+        const res = await fetch(`${API_BASE}/workspaces`, {
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+        if (!res.ok) throw new Error('Could not load workspaces');
+        const data = await res.json();
+        
+        state.workspaces = data;
+
+        // If no workspaces exist in the system, automatically create default ones
+        if (state.workspaces.length === 0) {
+          const defaults = [
+            { workspace_id: 'ws-engineering', name: 'Engineering Team' },
+            { workspace_id: 'ws-marketing', name: 'Marketing Hub' }
+          ];
+          for (const d of defaults) {
+            const createRes = await fetch(`${API_BASE}/workspaces`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${state.token}`
+              },
+              body: JSON.stringify({ workspace_id: d.workspace_id, name: d.name })
+            });
+            if (createRes.ok) {
+              state.workspaces.push(d);
+            }
+          }
+        }
+
+        // Set active workspace to first one if not set
+        if (state.workspaces.length > 0) {
+          const exists = state.workspaces.some(w => w.workspace_id === state.activeWorkspace);
+          if (!exists) {
+            state.activeWorkspace = state.workspaces[0].workspace_id;
+          }
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
     }
 
     // Prepopulate Select Options
@@ -732,6 +792,23 @@
 
       if (!text || !state.activeChannel) return;
 
+      // Generate client_msg_id for deduplication
+      const clientMsgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 11);
+
+      // Append locally immediately to show responsiveness
+      const localMsg = {
+        client_msg_id: clientMsgId,
+        sender_id: state.userId,
+        text: text,
+        ts: Date.now()
+      };
+
+      if (!state.messages[state.activeChannel]) state.messages[state.activeChannel] = [];
+      state.messages[state.activeChannel].push(localMsg);
+      appendMessageToUI(localMsg);
+
+      input.value = '';
+
       try {
         const res = await fetch(`${API_BASE}/channels/${state.activeChannel}/messages`, {
           method: 'POST',
@@ -739,12 +816,10 @@
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${state.token}`
           },
-          body: JSON.stringify({ text })
+          body: JSON.stringify({ text, client_msg_id: clientMsgId })
         });
 
         if (!res.ok) throw new Error('Failed to send message');
-        
-        input.value = '';
 
         // Trigger feed reload
         loadUserActivityFeed();
@@ -799,11 +874,19 @@
           const payload = msg.data;
 
           if (!state.messages[chId]) state.messages[chId] = [];
-          state.messages[chId].push(payload);
 
-          // If active, render live
-          if (state.activeChannel === chId) {
-            appendMessageToUI(payload);
+          // Deduplication check: verify if we already loaded it locally
+          const isDuplicate = state.messages[chId].some(m => 
+            (payload.client_msg_id && m.client_msg_id === payload.client_msg_id) ||
+            (!payload.client_msg_id && m.sender_id === payload.sender_id && m.text === payload.text && Math.abs(m.ts - payload.ts) < 1500)
+          );
+
+          if (!isDuplicate) {
+            state.messages[chId].push(payload);
+            // If active, render live
+            if (state.activeChannel === chId) {
+              appendMessageToUI(payload);
+            }
           }
         }
 
@@ -996,8 +1079,10 @@
       } catch (err) {
         console.error(err);
       } finally {
-        // Poll every 8s
-        setTimeout(loadTeammatesPresence, 8000);
+        // Poll every 8s only if the user session is active (prevent memory leaks)
+        if (state.token) {
+          setTimeout(loadTeammatesPresence, 8000);
+        }
       }
     }
 
@@ -1058,9 +1143,9 @@
           return;
         }
 
-        data.feed.forEach(eventStr => {
-          let item;
-          try { item = JSON.parse(eventStr); } catch { return; }
+        data.feed.forEach(itemRaw => {
+          // Check if item is already pre-parsed JSON object, otherwise parse it
+          const item = typeof itemRaw === 'string' ? JSON.parse(itemRaw) : itemRaw;
 
           const timeStr = item.ts ? new Date(item.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'recently';
           let icon = '⚡';
@@ -1101,10 +1186,47 @@
       }
     }
 
+    // Shared Workspaces SINTER Lookup tool
+    async function findSharedWorkspaces() {
+      const otherUser = document.getElementById('sinter-other-user').value.trim();
+      if (!otherUser) {
+        showToast('Please enter a user ID', 'error');
+        return;
+      }
+      
+      try {
+        const res = await fetch(`${API_BASE}/workspaces/common?user_a=${state.userId}&user_b=${otherUser}`, {
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+        if (!res.ok) throw new Error('Shared workspaces lookup failed');
+        const data = await res.json();
+        
+        const resultsDiv = document.getElementById('sinter-results');
+        resultsDiv.innerHTML = '';
+        
+        if (!data.common_workspaces || data.common_workspaces.length === 0) {
+          resultsDiv.innerHTML = `<span class="text-zinc-500 text-[10px] italic">No shared workspaces found with ${otherUser}.</span>`;
+          return;
+        }
+        
+        data.common_workspaces.forEach(wsId => {
+          const div = document.createElement('div');
+          div.className = 'flex items-center gap-1.5 text-zinc-300 font-semibold py-0.5 border-b border-zinc-900 last:border-0';
+          div.innerHTML = `
+            <span class="w-1 h-1 rounded-full bg-brand-secondary"></span>
+            <span class="truncate flex-1">${wsId}</span>
+          `;
+          resultsDiv.appendChild(div);
+        });
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
     // Simulated location check-in
     async function handleLocationCheckin() {
-      // Simulate random coords around central city coordinates
-      const lon = (77.59 + (Math.random() - 0.5) * 0.05).toFixed(4);
+      // Simulate random coordinates around Bengaluru, India
+      const lon = (77.59 + (Math.random() - 0.5) * 0.05).toFixed(4); // Bengaluru, India
       const lat = (12.97 + (Math.random() - 0.5) * 0.05).toFixed(4);
 
       try {

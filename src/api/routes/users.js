@@ -15,11 +15,30 @@ router.use(requireAuth, rateLimiter);
  */
 router.get('/:id', async (req, res, next) => {
   try {
-    const profile = await redis.hgetall(`user:${req.params.id}`);
-    if (!profile || Object.keys(profile).length === 0) {
+    const exists = await redis.hexists(`user:${req.params.id}`, 'user_id');
+    if (!exists) {
       return res.status(404).json({ error: 'User not found' });
     }
+    const profile = await redis.hgetall(`user:${req.params.id}`);
     return res.json(profile);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /users/:id/field/:fieldname
+ * Retrieve a single field from the user profile hash.
+ * Command: HGET
+ */
+router.get('/:id/field/:fieldname', async (req, res, next) => {
+  try {
+    const allowed = ['name', 'email', 'role', 'bio', 'avatar_url', 'user_id'];
+    if (!allowed.includes(req.params.fieldname)) {
+      return res.status(400).json({ error: `Invalid or restricted field name: ${req.params.fieldname}` });
+    }
+    const value = await redis.hget(`user:${req.params.id}`, req.params.fieldname);
+    return res.json({ user_id: req.params.id, field: req.params.fieldname, value });
   } catch (err) {
     next(err);
   }

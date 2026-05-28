@@ -72,7 +72,7 @@ router.get('/', async (req, res, next) => {
  */
 router.post('/:id/messages', async (req, res, next) => {
   try {
-    const { text } = req.body;
+    const { text, client_msg_id } = req.body;
     if (!text) return res.status(400).json({ error: 'text is required' });
 
     const message = {
@@ -80,6 +80,7 @@ router.post('/:id/messages', async (req, res, next) => {
       sender_id:  req.userId,
       text,
       ts:         Date.now(),
+      client_msg_id: client_msg_id || null
     };
 
     // PUBLISH to Pub/Sub channel

@@ -19,11 +19,15 @@ async function rateLimiter(req, res, next) {
   const minuteTs      = Math.floor(Date.now() / 1000 / RATE_LIMIT_WINDOW);
   const key           = `rate_limit:${identifier}:${minuteTs}`;
 
-  // INCR is atomic — safe in a distributed environment
-  const count = await redis.incr(key);
+  // Use multi to increment and check TTL atomically to avoid race condition of missing TTL
+  const pipeline = redis.multi();
+  pipeline.incr(key);
+  pipeline.ttl(key);
+  const results = await pipeline.exec();
+  const count = results[0][1];
+  const ttl = results[1][1];
 
-  if (count === 1) {
-    // First request in this window — set the expiry
+  if (ttl === -1) {
     await redis.expire(key, RATE_LIMIT_WINDOW);
   }
 

@@ -48,33 +48,16 @@ router.get('/nearby', async (req, res, next) => {
     const validUnits = ['m', 'km', 'mi', 'ft'];
     const safeUnit = validUnits.includes(unit) ? unit : 'km';
 
-    let results = [];
-    try {
-      results = await redis.geosearch(
-        GEO_KEY,
-        'FROMMEMBER', req.userId,      // Search from the requesting user's current position
-        'BYRADIUS', parseFloat(radius), safeUnit,
-        'ASC',                          // Nearest first
-        'WITHCOORD',
-        'WITHDIST',
-        'COUNT', 50
-      );
-    } catch (memberErr) {
-      if (memberErr.message && memberErr.message.includes('could not find')) {
-        // Fallback to FROMLONLAT if the user hasn't set their location yet
-        results = await redis.geosearch(
-          GEO_KEY,
-          'FROMLONLAT', parseFloat(longitude), parseFloat(latitude),
-          'BYRADIUS', parseFloat(radius), safeUnit,
-          'ASC',
-          'WITHCOORD',
-          'WITHDIST',
-          'COUNT', 50
-        );
-      } else {
-        throw memberErr;
-      }
-    }
+    // Primary mode: FROMLONLAT using coordinates passed via query parameters
+    const results = await redis.geosearch(
+      GEO_KEY,
+      'FROMLONLAT', parseFloat(longitude), parseFloat(latitude),
+      'BYRADIUS', parseFloat(radius), safeUnit,
+      'ASC',                          // Nearest first
+      'WITHCOORD',
+      'WITHDIST',
+      'COUNT', 50
+    );
 
     const nearby = results.map((entry) => {
       // ioredis returns: [member, distance, [lon, lat]]
