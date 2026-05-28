@@ -160,6 +160,7 @@ router.post('/:id/members', async (req, res, next) => {
 router.delete('/:id/members/:uid', async (req, res, next) => {
   try {
     await redis.srem(`workspace:${req.params.id}:members`, req.params.uid);
+    await redis.srem(`user:${req.params.uid}:workspaces`, req.params.id);
     return res.json({ workspace_id: req.params.id, user_id: req.params.uid, status: 'removed' });
   } catch (err) {
     next(err);
