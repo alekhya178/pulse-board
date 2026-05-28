@@ -23,10 +23,17 @@ router.get('/trending', async (req, res, next) => {
   try {
     const n = Math.min(parseInt(req.query.n || '10', 10), 100);
     const raw = await redis.zrevrange('trending:channels', 0, n - 1, 'WITHSCORES');
-    // raw = ['ch1', '42', 'ch2', '30', ...]
     const channels = [];
     for (let i = 0; i < raw.length; i += 2) {
-      channels.push({ channel_id: raw[i], score: Number(raw[i + 1]) });
+      const channelId = raw[i];
+      const score = Number(raw[i + 1]);
+      const meta = await redis.hgetall(`channel:${channelId}`);
+      channels.push({
+        channel_id: channelId,
+        score,
+        name: meta.name || channelId,
+        workspace_id: meta.workspace_id || ''
+      });
     }
     return res.json({ trending: channels });
   } catch (err) {

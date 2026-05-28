@@ -1105,13 +1105,14 @@
 
         const trophies = ['🥇', '🥈', '🥉'];
         data.trending.forEach((item, index) => {
-          const chName = item.channel_id.replace(/^ch-[a-z0-9-]+-/, ''); // clean view
+          const chName = item.name || item.channel_id.replace(/^ch-[a-z0-9-]+-/, ''); // clean view
+          const wsContext = item.workspace_id ? ` <span class="text-[9px] text-zinc-500 font-sans">(${item.workspace_id.replace(/^ws-/, '')})</span>` : '';
           const li = document.createElement('li');
           li.className = "flex items-center justify-between py-1.5 border-b border-zinc-900/60 last:border-0";
           li.innerHTML = `
             <div class="flex items-center gap-2">
               <span class="text-sm select-none">${trophies[index] || `#${index+1}`}</span>
-              <span class="font-code text-zinc-300">#${chName}</span>
+              <span class="font-code text-zinc-300">#${chName}${wsContext}</span>
             </div>
             <div class="flex items-center gap-1">
               <span class="text-[10px] text-zinc-500 font-medium">score:</span>
